@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: keii-cv-api
+    env: docker
+    repo: https://github.com/trunghuydev/Portfolio_BE
+    branch: main
+    dockerfilePath: ./src/Dockerfile
+    plan: free
+    autoDeploy: false

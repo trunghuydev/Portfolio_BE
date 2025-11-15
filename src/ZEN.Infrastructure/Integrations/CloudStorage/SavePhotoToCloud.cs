@@ -17,10 +17,34 @@ namespace ZEN.Infrastructure.Integrations.CloudStorage
 
         public SavePhotoToCloud()
         {
-            Env.Load();
-            _cloudName = Env.GetString("CLOUDNAME");
-            _apiKey = Env.GetString("APIKEY");
-            _apiSecret = Env.GetString("APISECRET");
+            // Try to load .env file for local development (will fail silently if not found)
+            try
+            {
+                Env.Load();
+                Env.TraversePath().Load();
+            }
+            catch
+            {
+                // Ignore if .env file not found (e.g., in production)
+            }
+
+            // Read from environment variables (works for both local .env and production)
+            _cloudName = Environment.GetEnvironmentVariable("CLOUDNAME") ?? Env.GetString("CLOUDNAME", "");
+            _apiKey = Environment.GetEnvironmentVariable("APIKEY") ?? Env.GetString("APIKEY", "");
+            _apiSecret = Environment.GetEnvironmentVariable("APISECRET") ?? Env.GetString("APISECRET", "");
+
+            if (string.IsNullOrWhiteSpace(_cloudName) || string.IsNullOrWhiteSpace(_apiKey) || string.IsNullOrWhiteSpace(_apiSecret))
+            {
+                Console.WriteLine("[Cloudinary] WARNING: Cloudinary credentials not found. Image upload will fail.");
+                Console.WriteLine($"[Cloudinary] CLOUDNAME: {(!string.IsNullOrEmpty(_cloudName) ? "SET" : "NOT SET")}");
+                Console.WriteLine($"[Cloudinary] APIKEY: {(!string.IsNullOrEmpty(_apiKey) ? "SET" : "NOT SET")}");
+                Console.WriteLine($"[Cloudinary] APISECRET: {(!string.IsNullOrEmpty(_apiSecret) ? "SET" : "NOT SET")}");
+            }
+            else
+            {
+                Console.WriteLine("[Cloudinary] Credentials loaded successfully");
+            }
+
             var acc = new Account(_cloudName, _apiKey, _apiSecret);
             _cloudinary = new Cloudinary(acc);
         }
@@ -73,8 +97,13 @@ namespace ZEN.Infrastructure.Integrations.CloudStorage
 
                 var uploadResult = await _cloudinary.UploadAsync(uploadParams);
                 if (uploadResult.StatusCode != System.Net.HttpStatusCode.OK)
-                    throw new Exception("Failed to upload image");
+                {
+                    var errorMsg = $"Failed to upload image. Status: {uploadResult.StatusCode}, Error: {uploadResult.Error?.Message ?? "Unknown error"}";
+                    Console.WriteLine($"[Cloudinary] {errorMsg}");
+                    throw new Exception(errorMsg);
+                }
 
+                Console.WriteLine($"[Cloudinary] Image uploaded successfully: {uploadResult.SecureUrl.AbsoluteUri}");
                 return uploadResult.SecureUrl.AbsoluteUri;
             }
         }

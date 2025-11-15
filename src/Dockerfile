@@ -20,8 +20,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY --from=build /app/publish .
 
-COPY src/ZEN.Startup/appsettings.json /app/appsettings.json
-COPY src/ZEN.Startup/appsettings.Development.json /app/appsettings.Development.json
+COPY --from=build /src/ZEN.Startup/appsettings.json /app/appsettings.json
+COPY --from=build /src/ZEN.Startup/appsettings.Development.json /app/appsettings.Development.json
 
 ENTRYPOINT ["dotnet", "ZEN.Startup.dll"]
 

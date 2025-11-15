@@ -11,19 +11,70 @@ namespace ZEN.Infrastructure.Integrations.Redis
 
         public RedisCache(string redisConnectionString)
         {
-            var options = ConfigurationOptions.Parse(redisConnectionString);
+            if (string.IsNullOrWhiteSpace(redisConnectionString))
+            {
+                throw new ArgumentException("Redis connection string cannot be null or empty", nameof(redisConnectionString));
+            }
 
-            options.User = Environment.GetEnvironmentVariable("REDIS_USER") ?? "default";
+            try
+            {
+                // Parse connection string - support both URL format and host:port format
+                ConfigurationOptions options;
 
-            options.AbortOnConnectFail = false;
-            options.ConnectTimeout = 10000;
-            options.SyncTimeout = 10000;
-            options.KeepAlive = 60;
-            options.Ssl = false;
-            // Console.WriteLine($"User: {options.User}, Password: {options.Password}, EndPoints: {string.Join(",", options.EndPoints)}");
+                // If it's a full URL (redis:// or rediss://)
+                if (redisConnectionString.StartsWith("redis://", StringComparison.OrdinalIgnoreCase) ||
+                    redisConnectionString.StartsWith("rediss://", StringComparison.OrdinalIgnoreCase))
+                {
+                    options = ConfigurationOptions.Parse(redisConnectionString);
+                }
+                else
+                {
+                    // If it's just host:port format, parse manually
+                    options = new ConfigurationOptions();
+                    var parts = redisConnectionString.Split(':');
+                    if (parts.Length >= 2)
+                    {
+                        options.EndPoints.Add(parts[0], int.Parse(parts[1]));
+                    }
+                    else
+                    {
+                        options.EndPoints.Add(redisConnectionString, 6379);
+                    }
+                }
 
-            _redis = ConnectionMultiplexer.Connect(options);
-            _db = _redis.GetDatabase();
+                // Set user if provided
+                var redisUser = Environment.GetEnvironmentVariable("REDIS_USER");
+                if (!string.IsNullOrEmpty(redisUser))
+                {
+                    options.User = redisUser;
+                }
+
+                // Connection settings
+                options.AbortOnConnectFail = false;
+                options.ConnectTimeout = 10000;
+                options.SyncTimeout = 10000;
+                options.KeepAlive = 60;
+
+                // Enable SSL if connection string uses rediss://
+                options.Ssl = redisConnectionString.StartsWith("rediss://", StringComparison.OrdinalIgnoreCase);
+
+                // Allow admin commands for RemoveByPrefixAsync
+                options.AllowAdmin = true;
+
+                Console.WriteLine($"[Redis] Connecting to: {string.Join(",", options.EndPoints)}");
+                Console.WriteLine($"[Redis] User: {options.User ?? "default"}, SSL: {options.Ssl}");
+
+                _redis = ConnectionMultiplexer.Connect(options);
+                _db = _redis.GetDatabase();
+
+                Console.WriteLine("[Redis] Connection established successfully");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Redis] Connection failed: {ex.Message}");
+                Console.WriteLine($"[Redis] Connection string: {redisConnectionString}");
+                throw new InvalidOperationException($"Failed to connect to Redis: {ex.Message}", ex);
+            }
         }
 
         public async Task<string?> GetAsync(string key)

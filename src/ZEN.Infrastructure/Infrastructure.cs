@@ -59,12 +59,67 @@ public static class Infrastructure
 
         #endregion
 
-        // services.AddScoped<IRedisCache, RedisCache>();
+        // Register Redis Cache
+        var connStr = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
+        
+        if (string.IsNullOrWhiteSpace(connStr))
+        {
+            // Default to localhost Redis if not specified (for local development)
+            connStr = "localhost:6379";
+            Console.WriteLine("[Redis] WARNING: REDIS_CONNECTION_STRING not set. Using default: localhost:6379");
+        }
+        else
+        {
+            Console.WriteLine($"[Redis] Connection string found: {MaskConnectionString(connStr)}");
+        }
+        
+        // Use factory pattern to handle connection errors gracefully
         services.AddScoped<IRedisCache>(sp =>
         {
-            var connStr = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")!;
-            return new RedisCache(connStr);
+            try
+            {
+                var redisCache = new RedisCache(connStr);
+                Console.WriteLine("[Redis] RedisCache service registered successfully");
+                return redisCache;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Redis] ERROR: Failed to initialize Redis. Using NullRedisCache.");
+                Console.WriteLine($"[Redis] Error details: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[Redis] Inner exception: {ex.InnerException.Message}");
+                }
+                return new NullRedisCache();
+            }
         });
+        
+        // Helper method to mask sensitive connection string
+        static string MaskConnectionString(string connStr)
+        {
+            if (string.IsNullOrEmpty(connStr)) return "empty";
+            
+            // Mask password in connection string
+            if (connStr.Contains("@"))
+            {
+                var parts = connStr.Split('@');
+                if (parts.Length == 2)
+                {
+                    var authPart = parts[0];
+                    if (authPart.Contains(":"))
+                    {
+                        var authParts = authPart.Split(':');
+                        if (authParts.Length >= 2)
+                        {
+                            return $"{authParts[0]}:****@{parts[1]}";
+                        }
+                    }
+                }
+            }
+            
+            // If it's just host:port, show as is
+            return connStr;
+        }
         // services.AddStackExchangeRedisCache(options =>
         //    {
         //        options.Configuration = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")!;

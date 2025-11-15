@@ -33,12 +33,27 @@ namespace ZEN.Infrastructure.Integrations.CloudStorage
             _apiKey = Environment.GetEnvironmentVariable("APIKEY") ?? Env.GetString("APIKEY", "");
             _apiSecret = Environment.GetEnvironmentVariable("APISECRET") ?? Env.GetString("APISECRET", "");
 
+            // Trim whitespace
+            _cloudName = _cloudName?.Trim() ?? "";
+            _apiKey = _apiKey?.Trim() ?? "";
+            _apiSecret = _apiSecret?.Trim() ?? "";
+
+            // Log detailed info
+            Console.WriteLine($"[Cloudinary] Loading credentials...");
+            Console.WriteLine($"[Cloudinary] CLOUDNAME from env: {Environment.GetEnvironmentVariable("CLOUDNAME") != null}");
+            Console.WriteLine($"[Cloudinary] APIKEY from env: {Environment.GetEnvironmentVariable("APIKEY") != null}");
+            Console.WriteLine($"[Cloudinary] APISECRET from env: {Environment.GetEnvironmentVariable("APISECRET") != null}");
+            Console.WriteLine($"[Cloudinary] CLOUDNAME length: {_cloudName.Length}");
+            Console.WriteLine($"[Cloudinary] APIKEY length: {_apiKey.Length}");
+            Console.WriteLine($"[Cloudinary] APISECRET length: {_apiSecret.Length}");
+
             if (string.IsNullOrWhiteSpace(_cloudName) || string.IsNullOrWhiteSpace(_apiKey) || string.IsNullOrWhiteSpace(_apiSecret))
             {
-                Console.WriteLine("[Cloudinary] WARNING: Cloudinary credentials not found. Image upload will fail.");
-                Console.WriteLine($"[Cloudinary] CLOUDNAME: {(!string.IsNullOrEmpty(_cloudName) ? "SET" : "NOT SET")}");
-                Console.WriteLine($"[Cloudinary] APIKEY: {(!string.IsNullOrEmpty(_apiKey) ? "SET" : "NOT SET")}");
-                Console.WriteLine($"[Cloudinary] APISECRET: {(!string.IsNullOrEmpty(_apiSecret) ? "SET" : "NOT SET")}");
+                Console.WriteLine("[Cloudinary] ERROR: Cloudinary credentials not found or empty. Image upload will fail.");
+                Console.WriteLine($"[Cloudinary] CLOUDNAME: {(!string.IsNullOrEmpty(_cloudName) ? $"SET (length: {_cloudName.Length})" : "NOT SET")}");
+                Console.WriteLine($"[Cloudinary] APIKEY: {(!string.IsNullOrEmpty(_apiKey) ? $"SET (length: {_apiKey.Length})" : "NOT SET")}");
+                Console.WriteLine($"[Cloudinary] APISECRET: {(!string.IsNullOrEmpty(_apiSecret) ? $"SET (length: {_apiSecret.Length})" : "NOT SET")}");
+                throw new InvalidOperationException("Cloudinary credentials are not configured. Please set CLOUDNAME, APIKEY, and APISECRET environment variables.");
             }
             else
             {
@@ -47,6 +62,7 @@ namespace ZEN.Infrastructure.Integrations.CloudStorage
 
             var acc = new Account(_cloudName, _apiKey, _apiSecret);
             _cloudinary = new Cloudinary(acc);
+            Console.WriteLine("[Cloudinary] Cloudinary client initialized");
         }
 
         public async Task<bool> DeletePhotoAsync(string? img_url)

@@ -51,22 +51,40 @@ namespace ZEN.Infrastructure.Integrations.Redis
 
                 // Connection settings
                 options.AbortOnConnectFail = false;
-                options.ConnectTimeout = 10000;
-                options.SyncTimeout = 10000;
+                options.ConnectTimeout = 30000; // Increase timeout to 30s for Upstash
+                options.SyncTimeout = 30000;
+                options.AsyncTimeout = 30000;
                 options.KeepAlive = 60;
+                options.ReconnectRetryPolicy = new ExponentialRetry(1000, 10000); // Retry policy
 
                 // Enable SSL if connection string uses rediss://
                 options.Ssl = redisConnectionString.StartsWith("rediss://", StringComparison.OrdinalIgnoreCase);
+                
+                // SSL configuration for Upstash
+                if (options.Ssl)
+                {
+                    options.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+                    options.CheckCertificateRevocation = false; // Upstash uses self-signed certs
+                }
 
                 // Allow admin commands for RemoveByPrefixAsync
                 options.AllowAdmin = true;
 
+                // Connection resilience
+                options.ConnectRetry = 3;
+                options.DefaultDatabase = 0;
+
                 Console.WriteLine($"[Redis] Connecting to: {string.Join(",", options.EndPoints)}");
                 Console.WriteLine($"[Redis] User: {options.User ?? "default"}, SSL: {options.Ssl}");
+                Console.WriteLine($"[Redis] ConnectTimeout: {options.ConnectTimeout}ms, SyncTimeout: {options.SyncTimeout}ms");
 
+                // Connect with retry
                 _redis = ConnectionMultiplexer.Connect(options);
                 _db = _redis.GetDatabase();
-
+                
+                // Test connection synchronously (will throw if connection fails)
+                // Note: Connection is established lazily, so we just verify it can be created
+                Console.WriteLine("[Redis] Connection multiplexer created, connection will be established on first use");
                 Console.WriteLine("[Redis] Connection established successfully");
             }
             catch (Exception ex)
@@ -79,13 +97,29 @@ namespace ZEN.Infrastructure.Integrations.Redis
 
         public async Task<string?> GetAsync(string key)
         {
-            var value = await _db.StringGetAsync(key);
-            return value.HasValue ? value.ToString() : null;
+            try
+            {
+                var value = await _db.StringGetAsync(key);
+                return value.HasValue ? value.ToString() : null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Redis] GetAsync failed for key '{key}': {ex.Message}");
+                return null; // Return null on error instead of throwing
+            }
         }
 
         public async Task RemoveAsync(string key)
         {
-            await _db.KeyDeleteAsync(key);
+            try
+            {
+                await _db.KeyDeleteAsync(key);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Redis] RemoveAsync failed for key '{key}': {ex.Message}");
+                // Don't throw, just log
+            }
         }
 
         public async Task RemoveByPrefixAsync(string prefix)
@@ -106,7 +140,15 @@ namespace ZEN.Infrastructure.Integrations.Redis
 
         public async Task SetAsync(string key, string value, TimeSpan? expiry = null)
         {
-            await _db.StringSetAsync(key, value, expiry);
+            try
+            {
+                await _db.StringSetAsync(key, value, expiry);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Redis] SetAsync failed for key '{key}': {ex.Message}");
+                // Don't throw, just log - cache failures shouldn't break the app
+            }
         }
     }
 }

@@ -1,18 +1,18 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-COPY ["src/ZEN.Application/ZEN.Application.csproj", "ZEN.Application/"]
-COPY ["src/ZEN.Contract/ZEN.Contract.csproj", "ZEN.Contract/"]
-COPY ["src/ZEN.Controller/ZEN.Controller.csproj", "ZEN.Controller/"]
-COPY ["src/ZEN.CoreLib/ZEN.CoreLib.csproj", "ZEN.CoreLib/"]
-COPY ["src/ZEN.Domain/ZEN.Domain.csproj", "ZEN.Domain/"]
-COPY ["src/ZEN.Infrastructure/ZEN.Infrastructure.csproj", "ZEN.Infrastructure/"]
-COPY ["src/ZEN.Infrastructure.Mysql/ZEN.Infrastructure.Mysql.csproj", "ZEN.Infrastructure.Mysql/"]
-COPY ["src/ZEN.Startup/ZEN.Startup.csproj", "ZEN.Startup/"]
+COPY ["ZEN.Application/ZEN.Application.csproj", "ZEN.Application/"]
+COPY ["ZEN.Contract/ZEN.Contract.csproj", "ZEN.Contract/"]
+COPY ["ZEN.Controller/ZEN.Controller.csproj", "ZEN.Controller/"]
+COPY ["ZEN.CoreLib/ZEN.CoreLib.csproj", "ZEN.CoreLib/"]
+COPY ["ZEN.Domain/ZEN.Domain.csproj", "ZEN.Domain/"]
+COPY ["ZEN.Infrastructure/ZEN.Infrastructure.csproj", "ZEN.Infrastructure/"]
+COPY ["ZEN.Infrastructure.Mysql/ZEN.Infrastructure.Mysql.csproj", "ZEN.Infrastructure.Mysql/"]
+COPY ["ZEN.Startup/ZEN.Startup.csproj", "ZEN.Startup/"]
 
 RUN dotnet restore "ZEN.Startup/ZEN.Startup.csproj"
 
-COPY src/. .
+COPY . .
 WORKDIR "/src/ZEN.Startup"
 RUN dotnet publish -c Release -o /app/publish
 

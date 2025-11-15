@@ -26,7 +26,9 @@ namespace ZEN.Controller.Endpoints.V1
                .WithApiVersionSet(version)
                .HasApiVersion(1);
 
-            co.MapPost("/add-skill", AddSkill).RequireAuthorization();
+            // RESTful endpoints
+            co.MapPost("/", AddSkill).RequireAuthorization(); // POST /api/v1/skill
+            co.MapPost("/add-skill", AddSkill).RequireAuthorization(); // Keep for backward compatibility
             co.MapGet("/", GetAllSkill).RequireAuthorization();
             co.MapPatch("/{skill_id}", UpdateSkill).RequireAuthorization();
             co.MapDelete("/", DeleteSkill).RequireAuthorization();

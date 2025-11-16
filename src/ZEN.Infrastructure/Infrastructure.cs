@@ -60,39 +60,42 @@ public static class Infrastructure
         #endregion
 
         // Register Redis Cache
+        // Nếu REDIS_CONNECTION_STRING null hoặc empty → fallback sang NullRedisCache
         var connStr = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
         
         if (string.IsNullOrWhiteSpace(connStr))
         {
-            // Default to localhost Redis if not specified (for local development)
-            connStr = "localhost:6379";
-            Console.WriteLine("[Redis] WARNING: REDIS_CONNECTION_STRING not set. Using default: localhost:6379");
+            Console.WriteLine("[Redis] No REDIS_CONNECTION_STRING provided, using NullRedisCache.");
+            services.AddSingleton<IRedisCache>(new NullRedisCache());
         }
         else
         {
             Console.WriteLine($"[Redis] Connection string found: {MaskConnectionString(connStr)}");
-        }
-        
-        // Use factory pattern to handle connection errors gracefully
-        services.AddScoped<IRedisCache>(sp =>
-        {
-            try
+            
+            // Use factory pattern to handle connection errors gracefully
+            // Initialize async at startup
+            services.AddSingleton<IRedisCache>(sp =>
             {
-                var redisCache = new RedisCache(connStr);
-                Console.WriteLine("[Redis] RedisCache service registered successfully");
-                return redisCache;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Redis] ERROR: Failed to initialize Redis. Using NullRedisCache.");
-                Console.WriteLine($"[Redis] Error details: {ex.Message}");
-                if (ex.InnerException != null)
+                try
                 {
-                    Console.WriteLine($"[Redis] Inner exception: {ex.InnerException.Message}");
+                    var redisCache = new RedisCache(connStr);
+                    // Initialize async at startup (block here to ensure warm-up)
+                    redisCache.InitializeAsync().GetAwaiter().GetResult();
+                    Console.WriteLine("[Redis] RedisCache service registered and initialized successfully");
+                    return redisCache;
                 }
-                return new NullRedisCache();
-            }
-        });
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Redis] ERROR: Failed to initialize Redis. Using NullRedisCache.");
+                    Console.WriteLine($"[Redis] Error details: {ex.Message}");
+                    if (ex.InnerException != null)
+                    {
+                        Console.WriteLine($"[Redis] Inner exception: {ex.InnerException.Message}");
+                    }
+                    return new NullRedisCache();
+                }
+            });
+        }
         
         // Helper method to mask sensitive connection string
         static string MaskConnectionString(string connStr)

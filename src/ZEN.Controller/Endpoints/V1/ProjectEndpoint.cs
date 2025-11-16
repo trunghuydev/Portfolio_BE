@@ -27,6 +27,7 @@ namespace ZEN.Controller.Endpoints.V1
                 .HasApiVersion(1);
 
             co.MapGet("/", GetProject).RequireAuthorization();
+            co.MapGet("/{project_id}", GetProjectById).RequireAuthorization();
             co.MapPost("/create-project", CreateProject).RequireAuthorization().DisableAntiforgery();
             co.MapPatch("/{project_id}", UpdateProject).RequireAuthorization().DisableAntiforgery();
             co.MapDelete("/{project_id}", DeleteProject).RequireAuthorization();
@@ -112,6 +113,25 @@ namespace ZEN.Controller.Endpoints.V1
             catch (BadHttpRequestException ex)
             {
                 return Results.Problem(ex.Message, statusCode: 400);
+            }
+        }
+
+        private async Task<IResult> GetProjectById(
+            [FromServices] IMediator mediator,
+            [FromRoute] string project_id
+        )
+        {
+            try
+            {
+                return (await mediator.Send(new GetProjectByIdQuery(project_id))).ToOk(e => Results.Ok(e));
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 404);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 401);
             }
         }
     }

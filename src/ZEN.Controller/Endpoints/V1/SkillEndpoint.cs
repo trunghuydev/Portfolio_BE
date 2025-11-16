@@ -30,6 +30,7 @@ namespace ZEN.Controller.Endpoints.V1
             co.MapPost("/", AddSkill).RequireAuthorization(); // POST /api/v1/skill
             co.MapPost("/add-skill", AddSkill).RequireAuthorization(); // Keep for backward compatibility
             co.MapGet("/", GetAllSkill).RequireAuthorization();
+            co.MapGet("/{skill_id}", GetSkillById).RequireAuthorization();
             co.MapPatch("/{skill_id}", UpdateSkill).RequireAuthorization();
             co.MapDelete("/", DeleteSkill).RequireAuthorization();
             co.MapDelete("remove/{skill_id}", DeleteSpecificSkill).RequireAuthorization();
@@ -70,6 +71,24 @@ namespace ZEN.Controller.Endpoints.V1
             catch (BadHttpRequestException ex)
             {
                 return Results.Problem(ex.Message, statusCode: 404);
+            }
+        }
+        private async Task<IResult> GetSkillById(
+            [FromServices] IMediator mediator,
+            [FromRoute] string skill_id
+            )
+        {
+            try
+            {
+                return (await mediator.Send(new GetSkillByIdQuery(skill_id))).ToOk(e => Results.Ok(e));
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 404);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 401);
             }
         }
         private async Task<IResult> UpdateSkill(

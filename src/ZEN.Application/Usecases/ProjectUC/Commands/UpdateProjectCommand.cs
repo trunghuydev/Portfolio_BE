@@ -47,18 +47,28 @@ namespace ZEN.Application.Usecases.ProjectUC.Commands
             await redisCache.RemoveByPrefixAsync(cacheKey);
 
             var urlImgInDB = currentProject.img_url;
-            if (request.Arg.img_url != null || request.Arg?.img_url?.Length > 0)
+            var oldImageUrl = currentProject.img_url; // Lưu URL ảnh cũ để xóa sau
+            
+            // Xử lý upload ảnh mới
+            if (request.Arg.img_url != null && request.Arg.img_url.Length > 0)
             {
-                using var stream = request.Arg!.img_url!.OpenReadStream();
+                using var stream = request.Arg.img_url.OpenReadStream();
                 var url = await savePhotoToCloud.UploadPhotoAsync(stream, request.Arg.img_url.FileName);
                 urlImgInDB = url;
-            }
-
-            if (request.Arg?.img_url != null)
-            {
-                if (currentProject.img_url != null)
+                
+                // Xóa ảnh cũ trên Cloudinary sau khi upload ảnh mới thành công
+                if (!string.IsNullOrWhiteSpace(oldImageUrl))
                 {
-                    await savePhotoToCloud.DeletePhotoAsync(currentProject.img_url);
+                    try
+                    {
+                        await savePhotoToCloud.DeletePhotoAsync(oldImageUrl);
+                        Console.WriteLine($"[Cloudinary] Old project image deleted successfully: {oldImageUrl}");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log lỗi nhưng không throw để không ảnh hưởng đến việc update project
+                        Console.WriteLine($"[Cloudinary] Failed to delete old project image: {ex.Message}");
+                    }
                 }
             }
 

@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using ZEN.Application.Usecases.CertificateUC.Commands;
+using ZEN.Application.Usecases.CertificateUC.Queries;
 using ZEN.Contract.CertificateDto.Request;
 using ZEN.Controller.Extensions;
 
@@ -27,6 +28,8 @@ namespace ZEN.Controller.Endpoints.V1
 
 
             co.MapPost("/", AddCertificate).RequireAuthorization();
+            co.MapGet("/", GetAllCertificates).RequireAuthorization();
+            co.MapGet("/{certificate_id}", GetCertificateById).RequireAuthorization();
             co.MapPatch("/{certificate_id}", UpdateCertificate).RequireAuthorization();
             co.MapDelete("/{certificate_id}", DeleteCertificate).RequireAuthorization();
             return endpoints;
@@ -48,6 +51,37 @@ namespace ZEN.Controller.Endpoints.V1
             catch (BadHttpRequestException ex)
             {
                 return Results.Problem(ex.Message, statusCode: 404);
+            }
+        }
+        private async Task<IResult> GetAllCertificates(
+            [FromServices] IMediator mediator
+            )
+        {
+            try
+            {
+                return (await mediator.Send(new GetAllCertificatesQuery())).ToOk(e => Results.Ok(e));
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 404);
+            }
+        }
+        private async Task<IResult> GetCertificateById(
+            [FromServices] IMediator mediator,
+            [FromRoute] string certificate_id
+            )
+        {
+            try
+            {
+                return (await mediator.Send(new GetCertificateByIdQuery(certificate_id))).ToOk(e => Results.Ok(e));
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 404);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 401);
             }
         }
         private async Task<IResult> UpdateCertificate(

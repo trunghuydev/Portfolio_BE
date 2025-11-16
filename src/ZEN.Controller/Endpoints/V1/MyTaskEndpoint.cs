@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using ZEN.Application.Usecases.MyTaskUC.Commands;
+using ZEN.Application.Usecases.MyTaskUC.Queries;
 using ZEN.Contract.MyTaskDto.Request;
 using ZEN.Controller.Extensions;
 
@@ -27,6 +28,8 @@ namespace ZEN.Controller.Endpoints.V1
                .HasApiVersion(1);
 
             co.MapPost("/{we_id}", AddMyTask).RequireAuthorization();
+            co.MapGet("/", GetAllMyTasks).RequireAuthorization();
+            co.MapGet("/{mt_id}", GetMyTaskById).RequireAuthorization();
             co.MapPatch("update/{we_id}", UpdateMyTask).RequireAuthorization();
             co.MapDelete("/{mt_id}", DeleteMyTask).RequireAuthorization();
             return endpoints;
@@ -51,6 +54,37 @@ namespace ZEN.Controller.Endpoints.V1
                 return Results.Problem(ex.Message, statusCode: 401);
             }
             catch (BadHttpRequestException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 401);
+            }
+        }
+        private async Task<IResult> GetAllMyTasks(
+            [FromServices] IMediator mediator
+        )
+        {
+            try
+            {
+                return (await mediator.Send(new GetAllMyTasksQuery())).ToOk(e => Results.Ok(e));
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 404);
+            }
+        }
+        private async Task<IResult> GetMyTaskById(
+            [FromServices] IMediator mediator,
+            [FromRoute] string mt_id
+        )
+        {
+            try
+            {
+                return (await mediator.Send(new GetMyTaskByIdQuery(mt_id))).ToOk(e => Results.Ok(e));
+            }
+            catch (NotFoundException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: 404);
+            }
+            catch (UnauthorizedAccessException ex)
             {
                 return Results.Problem(ex.Message, statusCode: 401);
             }
